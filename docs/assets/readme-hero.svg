@@ -1,0 +1,97 @@
+<svg width="1600" height="960" viewBox="0 0 1600 960" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="186" y1="92" x2="1414" y2="836" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FCFAF6"/>
+      <stop offset="1" stop-color="#F3EEE7"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#F4D4BE"/>
+      <stop offset="1" stop-color="#D97B46"/>
+    </linearGradient>
+    <linearGradient id="soft" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#FFF6EF"/>
+      <stop offset="1" stop-color="#F6E8DD"/>
+    </linearGradient>
+    <filter id="shadow" x="126" y="52" width="1348" height="824" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feOffset dy="22"/>
+      <feGaussianBlur stdDeviation="30"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.203922 0 0 0 0 0.164706 0 0 0 0 0.141176 0 0 0 0.14 0"/>
+    </filter>
+  </defs>
+
+  <rect width="1600" height="960" fill="#F7F4EE"/>
+  <circle cx="1316" cy="136" r="168" fill="#F0DCCF"/>
+  <circle cx="245" cy="170" r="120" fill="#F2E7DB"/>
+  <circle cx="1445" cy="837" r="162" fill="#E9D5C7"/>
+
+  <g filter="url(#shadow)">
+    <rect x="186" y="92" width="1228" height="744" rx="36" fill="url(#bg)"/>
+  </g>
+
+  <rect x="186" y="92" width="1228" height="744" rx="36" stroke="#E6DED5"/>
+  <rect x="186" y="92" width="1228" height="72" rx="36" fill="#F8F4EF"/>
+  <path d="M186 128C186 108.118 202.118 92 222 92H1378C1397.88 92 1414 108.118 1414 128V164H186V128Z" fill="#FBF8F3"/>
+
+  <circle cx="238" cy="128" r="8" fill="#E8C8B2"/>
+  <circle cx="264" cy="128" r="8" fill="#E3D9CE"/>
+  <circle cx="290" cy="128" r="8" fill="#E3D9CE"/>
+
+  <rect x="218" y="192" width="260" height="612" rx="24" fill="#F1F1EC"/>
+  <rect x="242" y="220" width="132" height="42" rx="21" fill="#D97B46"/>
+  <text x="308" y="247" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="700" fill="#FFF9F3">+ New chat</text>
+
+  <rect x="242" y="290" width="212" height="58" rx="16" fill="#F7E8DF" stroke="#E8CFC0"/>
+  <rect x="242" y="360" width="212" height="58" rx="16" fill="#FAFAF7"/>
+  <rect x="242" y="430" width="212" height="58" rx="16" fill="#FAFAF7"/>
+  <rect x="242" y="500" width="212" height="58" rx="16" fill="#FAFAF7"/>
+  <rect x="242" y="710" width="212" height="62" rx="18" fill="#FCFBF8" stroke="#E4DED6"/>
+
+  <text x="270" y="324" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="700" fill="#71472C">Why this answer works</text>
+  <text x="270" y="394" font-family="Inter, Arial, sans-serif" font-size="15" fill="#88827A">Side notes on terminology</text>
+  <text x="270" y="464" font-family="Inter, Arial, sans-serif" font-size="15" fill="#88827A">Drafting a cleaner summary</text>
+  <text x="270" y="534" font-family="Inter, Arial, sans-serif" font-size="15" fill="#88827A">The one worth saving</text>
+  <text x="270" y="748" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="700" fill="#3B3835">LitQuestion</text>
+
+  <rect x="520" y="194" width="560" height="610" rx="28" fill="#F7F7F5"/>
+  <text x="560" y="230" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" fill="#2F2B28">Main thread</text>
+  <rect x="548" y="264" width="360" height="86" rx="22" fill="#FFFFFF" stroke="#ECE7DF"/>
+  <rect x="696" y="372" width="356" height="142" rx="24" fill="#FDEEE0" stroke="#F0D5BF"/>
+  <rect x="548" y="540" width="388" height="102" rx="22" fill="#FFFFFF" stroke="#ECE7DF"/>
+
+  <circle cx="574" cy="290" r="14" fill="#E9E6E0"/>
+  <circle cx="722" cy="398" r="14" fill="#D97B46"/>
+  <circle cx="574" cy="566" r="14" fill="#E9E6E0"/>
+
+  <text x="602" y="294" font-family="Inter, Arial, sans-serif" font-size="16" fill="#59534D">A clear, useful answer shows up.</text>
+  <text x="750" y="400" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="700" fill="#6C4023">Highlight the answer you want to keep.</text>
+  <text x="750" y="430" font-family="Inter, Arial, sans-serif" font-size="15" fill="#7C5A44">Do not let tiny questions dilute it.</text>
+  <text x="602" y="570" font-family="Inter, Arial, sans-serif" font-size="16" fill="#59534D">Let the main conversation keep its shape.</text>
+
+  <rect x="730" y="466" width="112" height="32" rx="16" fill="#FFF8F2"/>
+  <rect x="854" y="466" width="150" height="32" rx="16" fill="#F7E8DF"/>
+  <text x="786" y="486" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700" fill="#915833">highlight</text>
+  <text x="929" y="486" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700" fill="#915833">stay on topic</text>
+
+  <rect x="1098" y="194" width="284" height="610" rx="28" fill="#FAFAF7" stroke="#ECE7DF"/>
+  <text x="1128" y="230" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" fill="#2F2B28">Side panel</text>
+  <rect x="1126" y="266" width="228" height="70" rx="18" fill="#FFFFFF" stroke="#ECE7DF"/>
+  <rect x="1158" y="364" width="196" height="96" rx="20" fill="url(#soft)" stroke="#E8D5C6"/>
+  <rect x="1126" y="486" width="214" height="76" rx="18" fill="#FFFFFF" stroke="#ECE7DF"/>
+  <rect x="1126" y="676" width="228" height="88" rx="24" fill="#FFFFFF" stroke="#ECE7DF"/>
+
+  <text x="1150" y="310" font-family="Inter, Arial, sans-serif" font-size="15" fill="#59534D">What does this term mean?</text>
+  <text x="1184" y="392" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700" fill="#6C4023">Ask the tiny question here.</text>
+  <text x="1184" y="420" font-family="Inter, Arial, sans-serif" font-size="14" fill="#7C5A44">Do not interrupt the main note.</text>
+  <text x="1150" y="528" font-family="Inter, Arial, sans-serif" font-size="15" fill="#59534D">Get a quick definition, then move on.</text>
+
+  <rect x="1152" y="704" width="104" height="30" rx="15" fill="#F7E8DF"/>
+  <rect x="1266" y="704" width="64" height="30" rx="15" fill="#EFE9E2"/>
+  <text x="1204" y="723" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700" fill="#7B4D30">merge back</text>
+  <text x="1298" y="723" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700" fill="#75706A">or not</text>
+
+  <path d="M1054 430C1080 430 1082 430 1098 430" stroke="#D5A07B" stroke-width="4" stroke-linecap="round" stroke-dasharray="10 10"/>
+  <circle cx="1072" cy="430" r="10" fill="url(#accent)"/>
+
+  <text x="218" y="66" font-family="Inter, Arial, sans-serif" font-size="38" font-weight="800" fill="#2E2A27">LitQuestion</text>
+  <text x="218" y="106" font-family="Inter, Arial, sans-serif" font-size="22" fill="#8C5E40">Keep the main thread clean. Ask the tiny question on the side.</text>
+</svg>
