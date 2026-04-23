@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security issue
+    url: https://github.com/Hzx0211/LitQuestion/security
+    about: Do not use public issues for sensitive vulnerabilities.

@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="docs/assets/readme-hero.svg" alt="LitQuestion hero" width="100%" />
-</p>
-
 <h1 align="center">LitQuestion</h1>
 
 <p align="center">
@@ -48,15 +44,14 @@
 
 这就是 LitQuestion 想提供的体验。
 
-## 它看起来像什么
+## README 截图放哪里
 
-<p align="center">
-  <img src="docs/assets/readme-side-panel.svg" alt="LitQuestion side panel showcase" width="100%" />
-</p>
+等你自己截图时，直接把图片放到这里：
 
-<p align="center">
-  <sub>主线继续往前走，侧边分支负责消化那些不该污染主上下文的小问题。</sub>
-</p>
+- `docs/assets/readme-main.png`：主界面全图
+- `docs/assets/readme-detail.png`：局部细节图，比如高光回答、分支入口或副窗口
+
+这样后面只要把截图文件补进去，就能继续沿用这套 README 目录结构，不需要再挪路径。
 
 ## 它和普通聊天客户端有什么不一样
 
@@ -160,6 +155,13 @@ LitQuestion 本身不提供模型服务，需要你自己提供兼容 OpenAI API
 - GitHub Actions 自动打包
 
 后续还会继续优化交互细节、跨平台体验和发布流程。
+
+## 仓库协作
+
+- 提建议或报问题：开 Issue
+- 提交改动前先看 [CONTRIBUTING.md](CONTRIBUTING.md)
+- 涉及安全问题先看 [SECURITY.md](SECURITY.md)
+- 协作讨论默认遵循 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 
 ## License
 

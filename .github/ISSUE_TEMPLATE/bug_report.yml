@@ -1,0 +1,50 @@
+name: Bug report
+description: Report a reproducible problem in LitQuestion
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. Please keep it concrete and reproducible.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What went wrong?
+      placeholder: The side panel intercepts scroll even after it is visually closed.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Give exact steps.
+      placeholder: |
+        1. Open a conversation
+        2. Open and close the side panel
+        3. Try scrolling in the covered area
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: Main chat should remain interactive after the side panel closes.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, app version, build source, model provider, and anything else relevant
+      placeholder: macOS 15.4, LitQuestion 0.1.0, local build from main
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Logs or screenshots
+      description: Paste logs or attach screenshots if you have them.
+

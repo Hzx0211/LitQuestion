@@ -1,0 +1,35 @@
+name: Feature request
+description: Propose a focused improvement for LitQuestion
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user problem are you trying to solve?
+      placeholder: I can open side branches, but I cannot quickly compare two of them.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Describe the change you want.
+      placeholder: Add a lightweight branch switcher in the side panel header.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why this fits LitQuestion
+      description: Explain how it supports the main-thread-plus-side-questions workflow.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Optional. What have you tried or considered already?
+
