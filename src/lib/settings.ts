@@ -1,6 +1,6 @@
 import { load, Store } from "@tauri-apps/plugin-store";
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import { DEFAULT_SETTINGS, type Settings } from "./types";
+import { DEFAULT_SETTINGS, type Settings, type StoredModelOption } from "./types";
 
 const STORE_FILE = "settings.json";
 const KEY = "app_settings";
@@ -60,4 +60,19 @@ export async function setApiKey(provider: string, value: string): Promise<void> 
 export async function deleteApiKey(provider: string): Promise<void> {
   if (!inTauriRuntime()) return;
   await invoke("secret_delete", { provider });
+}
+
+export async function listProviderModels(
+  provider: string,
+  baseUrl: string,
+  apiKey?: string
+): Promise<StoredModelOption[]> {
+  if (!inTauriRuntime()) {
+    throw new Error("当前是浏览器模式，无法通过本地后端同步模型列表。请使用 `npm run tauri:dev` 启动应用。");
+  }
+  return invoke<StoredModelOption[]>("list_models", {
+    provider,
+    baseUrl,
+    apiKey: apiKey?.trim() || null,
+  });
 }

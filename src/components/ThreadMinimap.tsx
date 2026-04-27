@@ -43,6 +43,7 @@ function ThreadMinimap() {
   const [hoverPreviewPos, setHoverPreviewPos] = useState<{ top: number; left: number } | null>(
     null
   );
+  const shellRef = useRef<HTMLDivElement>(null);
   const hoverOpenTimerRef = useRef<number | null>(null);
   const hoverCloseTimerRef = useRef<number | null>(null);
 
@@ -53,6 +54,19 @@ function ThreadMinimap() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  }, [minimapOpen, setMinimapOpen]);
+
+  useEffect(() => {
+    if (!minimapOpen) return;
+    function onPointerDown(e: PointerEvent) {
+      const target = e.target;
+      if (isPointerInsideHoverSurface(target)) return;
+      if (target instanceof Element && target.closest(".btn-minimap-toggle")) return;
+      closeHoverPreviewNow();
+      setMinimapOpen(false);
+    }
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => document.removeEventListener("pointerdown", onPointerDown, true);
   }, [minimapOpen, setMinimapOpen]);
 
   const latest = minimapOpen
@@ -113,8 +127,15 @@ function ThreadMinimap() {
   }
 
   function closeHoverPreviewNow() {
+    clearHoverTimers();
     setHoverPreviewId(null);
     setHoverPreviewPos(null);
+  }
+
+  function isPointerInsideHoverSurface(target: EventTarget | null): boolean {
+    if (!(target instanceof Element)) return false;
+    if (shellRef.current?.contains(target)) return true;
+    return Boolean(target.closest(".timeline-hover-floating"));
   }
 
   function getPreviewPos(target: HTMLElement) {
@@ -153,10 +174,23 @@ function ThreadMinimap() {
     }, HOVER_PREVIEW_CLOSE_DELAY_MS);
   }
 
+  useEffect(() => {
+    if (!minimapOpen || !hoverPreviewId) return;
+    function onPointerMove(e: PointerEvent) {
+      if (!isPointerInsideHoverSurface(e.target)) {
+        closeHoverPreviewNow();
+      }
+    }
+    document.addEventListener("pointermove", onPointerMove, true);
+    return () => document.removeEventListener("pointermove", onPointerMove, true);
+  }, [minimapOpen, hoverPreviewId]);
+
   return (
     <div
+      ref={shellRef}
       className={`minimap-shell ${minimapOpen ? "open" : "closed"}`}
       aria-hidden={!minimapOpen}
+      onPointerLeave={scheduleCloseHoverPreview}
     >
       <div className="minimap-shell-inner">
         <aside
@@ -169,14 +203,6 @@ function ThreadMinimap() {
             {highlightCount > 0 && (
               <span className="minimap-count">{highlightCount}</span>
             )}
-            <button
-              className="minimap-close"
-              onClick={() => setMinimapOpen(false)}
-              title="收起"
-              aria-label="收起对话记录"
-            >
-              ×
-            </button>
           </header>
           <div className="minimap-pane-body">
             {aiItems.length === 0 ? (

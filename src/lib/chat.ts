@@ -4,8 +4,22 @@ import { nanoid } from "nanoid";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
-  content: string;
+  content: ChatMessageContent;
 }
+
+export type ChatMessageContent = string | ChatMessageContentPart[];
+
+export type ChatMessageContentPart =
+  | {
+      type: "text";
+      text: string;
+    }
+  | {
+      type: "image_url";
+      image_url: {
+        url: string;
+      };
+    };
 
 export interface ChatStreamParams {
   provider: string;
@@ -57,6 +71,10 @@ export function streamChat(params: ChatStreamParams): ChatStreamHandle {
       );
 
       try {
+        const temperature =
+          params.model === "deepseek-reasoner"
+            ? null
+            : params.temperature ?? null;
         await invoke("chat_stream", {
           req: {
             request_id,
@@ -64,7 +82,7 @@ export function streamChat(params: ChatStreamParams): ChatStreamHandle {
             base_url: params.base_url,
             model: params.model,
             messages: params.messages,
-            temperature: params.temperature ?? null,
+            temperature,
             max_tokens: params.max_tokens ?? null,
           },
         });

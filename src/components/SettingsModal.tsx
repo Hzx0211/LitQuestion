@@ -1,8 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "../store/useAppStore";
-import { hasApiKey, setApiKey, deleteApiKey, writeSettings } from "../lib/settings";
+import {
+  hasApiKey,
+  listProviderModels,
+  setApiKey,
+  deleteApiKey,
+  writeSettings,
+} from "../lib/settings";
 import type { Settings } from "../lib/types";
 import { fileToAvatarDataURL, avatarInitials } from "../lib/avatar";
+import {
+  PROVIDER_PRESETS,
+  getAllModelOptions,
+  getProviderKey,
+} from "../lib/modelPresets";
 
 interface Props {
   open: boolean;
@@ -25,13 +36,6 @@ const TAB_TITLES: Record<TabId, string> = {
   about: "关于 LitQuestion",
 };
 
-const PROVIDER_PRESETS: { id: string; name: string; base_url: string; model: string }[] = [
-  { id: "openai", name: "OpenAI", base_url: "https://api.openai.com/v1", model: "gpt-4o-mini" },
-  { id: "anthropic-compat", name: "Claude (OpenAI 兼容)", base_url: "https://api.anthropic.com/v1", model: "claude-sonnet-4-5" },
-  { id: "deepseek", name: "DeepSeek", base_url: "https://api.deepseek.com/v1", model: "deepseek-chat" },
-  { id: "custom", name: "自定义", base_url: "", model: "" },
-];
-
 export default function SettingsModal({ open, onClose }: Props) {
   const settings = useAppStore((s) => s.settings);
   const refreshSettings = useAppStore((s) => s.refreshSettings);
@@ -40,6 +44,7 @@ export default function SettingsModal({ open, onClose }: Props) {
   const [apiKey, setApiKeyInput] = useState("");
   const [keyExists, setKeyExists] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [modelSyncing, setModelSyncing] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -93,6 +98,106 @@ export default function SettingsModal({ open, onClose }: Props) {
     setKeyExists(false);
     await refreshSettings();
     setMsg("已删除 API Key");
+  }
+
+  const apiModelOptions = getAllModelOptions(form);
+  const apiProviderKey = getProviderKey(form.provider, form.base_url);
+  const configuredModelIds = form.enabled_models?.[apiProviderKey];
+  const enabledModelIds =
+    configuredModelIds && configuredModelIds.length > 0
+      ? configuredModelIds
+      : apiModelOptions.map((m) => m.id);
+  const enabledModelSet = new Set(enabledModelIds);
+  const allModelIds = apiModelOptions.map((m) => m.id);
+  const allModelsSelected =
+    allModelIds.length > 0 && allModelIds.every((id) => enabledModelSet.has(id));
+
+  function setEnabledModelIds(nextIds: string[]) {
+    if (nextIds.length === 0) return;
+    const nextEnabledModels = {
+      ...(form.enabled_models ?? {}),
+      [apiProviderKey]: nextIds,
+    };
+    setForm({
+      ...form,
+      model: nextIds.includes(form.model) ? form.model : nextIds[0],
+      enabled_models: nextEnabledModels,
+    });
+  }
+
+  function toggleEnabledModel(id: string) {
+    const nextIds = enabledModelSet.has(id)
+      ? enabledModelIds.filter((modelId) => modelId !== id)
+      : [...enabledModelIds, id];
+    setEnabledModelIds(nextIds);
+  }
+
+  function toggleAllModels() {
+    if (allModelIds.length === 0) return;
+    if (!allModelsSelected) {
+      setEnabledModelIds(allModelIds);
+      return;
+    }
+    const fallback = allModelIds.includes(form.model) ? form.model : allModelIds[0];
+    setEnabledModelIds([fallback]);
+  }
+
+  function setManualModel(model: string) {
+    const nextModel = model.trim();
+    if (!nextModel) {
+      setForm({ ...form, model });
+      return;
+    }
+    const nextIds = enabledModelSet.has(nextModel)
+      ? enabledModelIds
+      : [nextModel, ...enabledModelIds];
+    setForm({
+      ...form,
+      model,
+      enabled_models: {
+        ...(form.enabled_models ?? {}),
+        [apiProviderKey]: nextIds,
+      },
+    });
+  }
+
+  async function syncModelList() {
+    setModelSyncing(true);
+    setMsg(null);
+    try {
+      const models = await listProviderModels(
+        form.provider,
+        form.base_url,
+        apiKey.trim() || undefined
+      );
+      if (models.length === 0) {
+        setMsg("没有从当前 API 返回可用模型，请检查 Base URL 或模型列表权限。");
+        return;
+      }
+      const nextProviderModels = {
+        ...(form.provider_models ?? {}),
+        [apiProviderKey]: models,
+      };
+      const nextModelOptions = getAllModelOptions({
+        ...form,
+        provider_models: nextProviderModels,
+      });
+      const nextIds = nextModelOptions.map((m) => m.id);
+      setForm({
+        ...form,
+        model: nextIds.includes(form.model) ? form.model : nextIds[0],
+        provider_models: nextProviderModels,
+        enabled_models: {
+          ...(form.enabled_models ?? {}),
+          [apiProviderKey]: nextIds,
+        },
+      });
+      setMsg(`已同步 ${models.length} 个模型，保存后会用于主输入框模型选择。`);
+    } catch (e) {
+      setMsg("同步模型失败: " + String(e));
+    } finally {
+      setModelSyncing(false);
+    }
   }
 
   return (
@@ -242,9 +347,75 @@ export default function SettingsModal({ open, onClose }: Props) {
                   <span>模型</span>
                   <input
                     value={form.model}
-                    placeholder="gpt-4o-mini"
-                    onChange={(e) => setForm({ ...form, model: e.target.value })}
+                    placeholder="可手动输入模型 ID"
+                    onChange={(e) => setManualModel(e.target.value)}
                   />
+                  <div className="settings-model-picker">
+                    <div className="settings-model-picker-head">
+                      <div className="settings-model-picker-title-row">
+                        <span>可选择模型</span>
+                        <small>
+                          {enabledModelIds.length}/{apiModelOptions.length}
+                        </small>
+                        <button
+                          type="button"
+                          className={`settings-model-sync ${modelSyncing ? "syncing" : ""}`}
+                          onClick={syncModelList}
+                          disabled={modelSyncing || !form.provider.trim() || !form.base_url.trim()}
+                          title="同步模型列表"
+                          aria-label="同步模型列表"
+                        >
+                          ↻
+                        </button>
+                      </div>
+                      <div className="settings-model-picker-actions">
+                        <label className="settings-model-select-all">
+                          <input
+                            type="checkbox"
+                            checked={allModelsSelected}
+                            disabled={apiModelOptions.length === 0}
+                            onChange={toggleAllModels}
+                          />
+                          <span>全选</span>
+                        </label>
+                      </div>
+                    </div>
+                    {apiModelOptions.length === 0 ? (
+                      <div className="settings-model-empty">
+                        自定义供应商暂无预设模型。请在上方手动输入模型 ID。
+                      </div>
+                    ) : (
+                      <div className="settings-model-list">
+                        {apiModelOptions.map((option) => {
+                          const checked = enabledModelSet.has(option.id);
+                          return (
+                            <label className="settings-model-option" key={option.id}>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                disabled={checked && enabledModelIds.length === 1}
+                                onChange={() => toggleEnabledModel(option.id)}
+                              />
+                              <span className="settings-model-option-main">
+                                <span className="settings-model-option-name">
+                                  {option.label}
+                                </span>
+                                <span className="settings-model-option-id">
+                                  {option.id}
+                                </span>
+                                <span className="settings-model-option-desc">
+                                  {option.description}
+                                </span>
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  <small className="hint">
+                    勾选后的模型会出现在主输入框的模型选择面板中。同步会使用已保存的 Key；如果上方刚填了新 Key，会临时用它拉取列表。
+                  </small>
                 </label>
 
                 <label className="field">

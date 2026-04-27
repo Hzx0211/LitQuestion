@@ -69,6 +69,7 @@ pub fn run() {
             secrets::secret_get,
             secrets::secret_delete,
             secrets::secret_has,
+            chat::list_models,
             chat::chat_stream,
             chat::chat_cancel,
         ])

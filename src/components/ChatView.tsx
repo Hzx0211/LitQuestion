@@ -19,6 +19,7 @@ const SIDE_MAX_WIDTH = 760;
 const MAIN_MIN_WIDTH = 420;
 const SIDE_WIDTH_KEY = "litquestion_side_width";
 const DRAG_THRESHOLD_PX = 6;
+const MAIN_WIDTH_ANCHOR_LOCK_MS = 560;
 
 type DropZone = "main" | "side";
 
@@ -30,6 +31,12 @@ interface DragState {
   height: number;
   preview: string;
   over: DropZone | null;
+}
+
+interface MainScrollAnchorLock {
+  id: string;
+  topOffset: number;
+  until: number;
 }
 
 function toDragPreviewText(markdown: string): string {
@@ -78,6 +85,7 @@ export default function ChatView() {
     startWidth: number;
     maxWidth: number;
   } | null>(null);
+  const mainScrollAnchorLockRef = useRef<MainScrollAnchorLock | null>(null);
 
   const latestMain = getLatestMainLeaf(messages) ?? getLatestMessage(messages);
   const thread = getChainToNode(messages, currentNodeId ?? latestMain?.id ?? null);
@@ -88,6 +96,101 @@ export default function ChatView() {
     if (!el) return;
     const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
     stickToBottomRef.current = distance <= STICK_THRESHOLD_PX;
+  }
+
+  function getMessageAnchorElement(messageId: string): HTMLElement | null {
+    const messageEl = document.getElementById(`msg-${messageId}`);
+    if (!messageEl) return null;
+    return (
+      (messageEl.querySelector(".msg-bubble-block") as HTMLElement | null) ??
+      messageEl
+    );
+  }
+
+  function isAnchorVisible(el: HTMLElement, scrollRect: DOMRect): boolean {
+    const rect = el.getBoundingClientRect();
+    return rect.bottom > scrollRect.top + 8 && rect.top < scrollRect.bottom - 8;
+  }
+
+  function findReadableAssistantAnchorId(preferredId?: string | null): string | null {
+    const scrollEl = scrollRef.current;
+    if (!scrollEl) return preferredId ?? null;
+    const scrollRect = scrollEl.getBoundingClientRect();
+
+    if (preferredId) {
+      const preferredEl = getMessageAnchorElement(preferredId);
+      if (preferredEl && isAnchorVisible(preferredEl, scrollRect)) {
+        return preferredId;
+      }
+    }
+
+    const targetY = scrollRect.top + Math.min(220, scrollRect.height * 0.34);
+    let bestId: string | null = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    for (const message of thread) {
+      if (message.role !== "assistant") continue;
+      const el = getMessageAnchorElement(message.id);
+      if (!el || !isAnchorVisible(el, scrollRect)) continue;
+      const rect = el.getBoundingClientRect();
+      const distance =
+        rect.top <= targetY && rect.bottom >= targetY
+          ? 0
+          : Math.min(Math.abs(rect.top - targetY), Math.abs(rect.bottom - targetY));
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestId = message.id;
+      }
+    }
+
+    return bestId ?? preferredId ?? null;
+  }
+
+  function beginMainScrollAnchorLock(messageId: string) {
+    const scrollEl = scrollRef.current;
+    const messageEl = getMessageAnchorElement(messageId);
+    if (!scrollEl || !messageEl) return;
+    const scrollRect = scrollEl.getBoundingClientRect();
+    const messageRect = messageEl.getBoundingClientRect();
+    mainScrollAnchorLockRef.current = {
+      id: messageId,
+      topOffset: messageRect.top - scrollRect.top,
+      until: performance.now() + MAIN_WIDTH_ANCHOR_LOCK_MS,
+    };
+    stickToBottomRef.current = false;
+  }
+
+  function beginMainWidthChangeAnchorLock(preferredId?: string | null) {
+    const anchorId = findReadableAssistantAnchorId(preferredId);
+    if (anchorId) beginMainScrollAnchorLock(anchorId);
+  }
+
+  function extendMainScrollAnchorLock() {
+    const lock = mainScrollAnchorLockRef.current;
+    if (!lock) return;
+    lock.until = performance.now() + MAIN_WIDTH_ANCHOR_LOCK_MS;
+  }
+
+  function cancelMainScrollAnchorLock() {
+    mainScrollAnchorLockRef.current = null;
+  }
+
+  function applyMainScrollAnchorLock(): boolean {
+    const lock = mainScrollAnchorLockRef.current;
+    if (!lock) return false;
+    const scrollEl = scrollRef.current;
+    const messageEl = getMessageAnchorElement(lock.id);
+    if (!scrollEl || !messageEl) {
+      mainScrollAnchorLockRef.current = null;
+      return false;
+    }
+    const scrollRect = scrollEl.getBoundingClientRect();
+    const messageRect = messageEl.getBoundingClientRect();
+    const delta = messageRect.top - scrollRect.top - lock.topOffset;
+    if (Math.abs(delta) > 0.5) {
+      scrollEl.scrollTop += delta;
+    }
+    return true;
   }
 
   useLayoutEffect(() => {
@@ -102,6 +205,26 @@ export default function ChatView() {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [currentId]);
+
+  useLayoutEffect(() => {
+    if (!mainScrollAnchorLockRef.current) return;
+    let rafId = 0;
+
+    const tick = () => {
+      const active = applyMainScrollAnchorLock();
+      const lock = mainScrollAnchorLockRef.current;
+      if (!active || !lock || performance.now() > lock.until) {
+        mainScrollAnchorLockRef.current = null;
+        return;
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+
+    tick();
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [sidePanel, sideCollapsed, sideWidth]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -130,7 +253,14 @@ export default function ChatView() {
     el.focus({ preventScroll: true });
   }, [sidePanel, sideCollapsed]);
 
-  function openSidePanelAndExpand(anchorMessageId: string, branchRootId?: string | null) {
+  function openSidePanelAndExpand(
+    anchorMessageId: string,
+    branchRootId?: string | null,
+    preserveMessageId: string | null = anchorMessageId
+  ) {
+    if (!sideExpanded) {
+      beginMainWidthChangeAnchorLock(preserveMessageId);
+    }
     openSidePanel(anchorMessageId, branchRootId);
     setSideCollapsed(false);
   }
@@ -193,11 +323,13 @@ export default function ChatView() {
         e.clientY >= scrollRect.top &&
         e.clientY <= scrollRect.bottom;
       if (!inMainArea) return;
+      cancelMainScrollAnchorLock();
       const el = document.elementFromPoint(e.clientX, e.clientY) as
         | HTMLElement
         | null;
       if (el) {
         if (el.closest(".minimap-float-pane")) return;
+        if (el.closest(".model-picker-popover")) return;
         if (el.closest(".timeline-hover-floating, .timeline-hover-card-inner")) return;
         if (el.closest(".settings-modal, .modal-backdrop")) return;
         if (el.closest("textarea")) return;
@@ -219,6 +351,7 @@ export default function ChatView() {
   function startResize(e: ReactMouseEvent<HTMLDivElement>) {
     if (!sidePanel) return;
     e.preventDefault();
+    beginMainWidthChangeAnchorLock();
     const total = splitRef.current?.clientWidth ?? window.innerWidth;
     const maxByLayout = Math.max(SIDE_MIN_WIDTH, total - MAIN_MIN_WIDTH);
     const maxWidth = Math.min(SIDE_MAX_WIDTH, maxByLayout);
@@ -234,9 +367,11 @@ export default function ChatView() {
       const delta = drag.startX - ev.clientX;
       const next = Math.min(drag.maxWidth, Math.max(SIDE_MIN_WIDTH, drag.startWidth + delta));
       setSideWidth(next);
+      extendMainScrollAnchorLock();
     };
     window.onmouseup = () => {
       draggingRef.current = null;
+      extendMainScrollAnchorLock();
       document.body.classList.remove("resizing-side");
       window.onmousemove = null;
       window.onmouseup = null;
@@ -331,7 +466,7 @@ export default function ChatView() {
       .filter((m) => m.is_branch_root === 1 && m.parent_id)
       .sort((a, b) => b.created_at - a.created_at)[0];
     if (!latestBranchRoot || !latestBranchRoot.parent_id) return;
-    openSidePanelAndExpand(latestBranchRoot.parent_id, latestBranchRoot.id);
+    openSidePanelAndExpand(latestBranchRoot.parent_id, latestBranchRoot.id, null);
   }
 
   const sideExpanded = Boolean(sidePanel) && !sideCollapsed;
@@ -473,8 +608,10 @@ export default function ChatView() {
           }}
           onClick={(e) => {
             if (sideExpanded) {
+              beginMainWidthChangeAnchorLock();
               setSideCollapsed(true);
             } else if (sidePanel) {
+              beginMainWidthChangeAnchorLock();
               setSideCollapsed(false);
             } else {
               openLatestSidePanelForCurrentConversation();

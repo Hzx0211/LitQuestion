@@ -33,6 +33,14 @@ export interface Settings {
   ui_font_size: number;
   user_name: string;
   user_avatar: string;
+  enabled_models: Record<string, string[]>;
+  provider_models: Record<string, StoredModelOption[]>;
+}
+
+export interface StoredModelOption {
+  id: string;
+  label: string;
+  description: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -44,4 +52,6 @@ export const DEFAULT_SETTINGS: Settings = {
   ui_font_size: 16,
   user_name: "本地用户",
   user_avatar: "",
+  enabled_models: {},
+  provider_models: {},
 };

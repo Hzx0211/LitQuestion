@@ -3,13 +3,22 @@ import { nanoid } from "nanoid";
 import type { Conversation, Message, Settings } from "../lib/types";
 import { DEFAULT_SETTINGS } from "../lib/types";
 import * as db from "../lib/db";
-import { readSettings, hasApiKey } from "../lib/settings";
+import { readSettings, hasApiKey, writeSettings } from "../lib/settings";
 import { streamChat, type ChatStreamHandle, type ChatMessage } from "../lib/chat";
+import {
+  buildAttachmentPrompt,
+  type PreparedAttachment,
+} from "../lib/attachments";
 import {
   summarizeBranchTitle,
   summarizeConversationTitle,
   summarizeNodeTitle,
 } from "../lib/summary";
+import {
+  findPresetByModelId,
+  getProviderModelOptions,
+  getProviderPreset,
+} from "../lib/modelPresets";
 import {
   buildMainContext,
   buildSideContext,
@@ -44,6 +53,7 @@ interface AppState {
 
   init: () => Promise<void>;
   refreshSettings: () => Promise<void>;
+  setModel: (model: string) => Promise<void>;
   selectConversation: (id: string | null) => Promise<void>;
   newConversation: () => Promise<string>;
   deleteConversation: (id: string) => Promise<void>;
@@ -51,7 +61,7 @@ interface AppState {
   jumpToMessage: (id: string) => void;
   jumpToLatest: () => void;
 
-  sendMainMessage: (text: string) => Promise<void>;
+  sendMainMessage: (text: string, attachments?: PreparedAttachment[]) => Promise<void>;
   cancelMainStream: () => Promise<void>;
 
   openSidePanel: (anchorMessageId: string, branchRootId?: string | null) => void;
@@ -69,6 +79,37 @@ interface AppState {
 function buildSystem(settings: Settings): string | null {
   const t = settings.system_prompt?.trim();
   return t ? t : null;
+}
+
+function alignProviderToModel(settings: Settings): Settings {
+  const currentPreset = getProviderPreset(settings.provider, settings.base_url);
+  if (!currentPreset) return settings;
+
+  const currentModels = getProviderModelOptions(settings);
+  if (currentModels.some((option) => option.id === settings.model)) {
+    return settings;
+  }
+
+  const modelPreset = findPresetByModelId(settings.model);
+  if (!modelPreset || modelPreset.id === currentPreset.id) {
+    return settings;
+  }
+
+  return {
+    ...settings,
+    provider: modelPreset.id,
+    base_url: modelPreset.base_url,
+  };
+}
+
+async function persistIfConnectionChanged(prev: Settings, next: Settings): Promise<void> {
+  if (
+    prev.provider !== next.provider ||
+    prev.base_url !== next.base_url ||
+    prev.model !== next.model
+  ) {
+    await writeSettings(next);
+  }
 }
 
 function labelsFromMessages(messages: Message[]): Record<string, string> {
@@ -96,10 +137,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   minimapOpen: false,
 
   async init() {
-    const [settings, convs] = await Promise.all([
+    const [rawSettings, convs] = await Promise.all([
       readSettings(),
       db.listConversations(),
     ]);
+    const settings = alignProviderToModel(rawSettings);
+    await persistIfConnectionChanged(rawSettings, settings);
     const hasKey = await hasApiKey(settings.provider);
     set({ ready: true, settings, hasKey, conversations: convs });
     if (convs.length > 0) {
@@ -108,7 +151,18 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   async refreshSettings() {
-    const settings = await readSettings();
+    const rawSettings = await readSettings();
+    const settings = alignProviderToModel(rawSettings);
+    await persistIfConnectionChanged(rawSettings, settings);
+    const hasKey = await hasApiKey(settings.provider);
+    set({ settings, hasKey });
+  },
+
+  async setModel(model) {
+    const nextModel = model.trim();
+    if (!nextModel) return;
+    const settings = alignProviderToModel({ ...get().settings, model: nextModel });
+    await writeSettings(settings);
     const hasKey = await hasApiKey(settings.provider);
     set({ settings, hasKey });
   },
@@ -215,12 +269,33 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ currentNodeId: latest?.id ?? null });
   },
 
-  async sendMainMessage(text) {
-    const { currentId, settings, messages, currentNodeId } = get();
+  async sendMainMessage(text, attachments = []) {
+    let { currentId, settings, messages, currentNodeId } = get();
+    const alignedSettings = alignProviderToModel(settings);
+    if (alignedSettings !== settings) {
+      await writeSettings(alignedSettings);
+      const hasKey = await hasApiKey(alignedSettings.provider);
+      set({ settings: alignedSettings, hasKey });
+      settings = alignedSettings;
+    }
     let convId = currentId;
     if (!convId) {
       convId = await get().newConversation();
     }
+
+    const promptText = buildAttachmentPrompt(text, attachments);
+    const hasImages = attachments.some((a) => a.kind === "image" && a.dataUrl);
+    const messageContent = hasImages
+      ? [
+          { type: "text" as const, text: promptText },
+          ...attachments
+            .filter((a) => a.kind === "image" && a.dataUrl)
+            .map((a) => ({
+              type: "image_url" as const,
+              image_url: { url: a.dataUrl! },
+            })),
+        ]
+      : promptText;
 
     const parent = currentNodeId ?? null;
     const userMsg = await db.insertMessage({
@@ -228,7 +303,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       conversation_id: convId,
       parent_id: parent,
       role: "user",
-      content: text,
+      content: promptText,
     });
     const assistantMsg = await db.insertMessage({
       id: nanoid(),
@@ -248,7 +323,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const convAfter = get().conversations.find((c) => c.id === convId);
     if (convAfter && convAfter.title === "新对话") {
       void (async () => {
-        const aiTitle = await summarizeConversationTitle(settings, text);
+        const aiTitle = await summarizeConversationTitle(settings, promptText);
         const title = aiTitle ?? (text.trim().slice(0, 24) || "新对话");
         await db.renameConversation(convId!, title);
         const convs = await db.listConversations();
@@ -261,6 +336,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       userMsg.id,
       buildSystem(settings)
     );
+    history[history.length - 1] = {
+      role: "user",
+      content: messageContent,
+    };
 
     let acc = "";
     let pending = "";
@@ -381,7 +460,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   async sendSideMessage(text) {
-    const { currentId, settings, messages, sidePanel } = get();
+    let { currentId, settings, messages, sidePanel } = get();
+    const alignedSettings = alignProviderToModel(settings);
+    if (alignedSettings !== settings) {
+      await writeSettings(alignedSettings);
+      const hasKey = await hasApiKey(alignedSettings.provider);
+      set({ settings: alignedSettings, hasKey });
+      settings = alignedSettings;
+    }
     if (!sidePanel || !currentId) return;
 
     const isFirst = sidePanel.branchRootId === null;

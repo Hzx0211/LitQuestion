@@ -17,7 +17,7 @@ use tokio::sync::oneshot;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessage {
     pub role: String,
-    pub content: String,
+    pub content: serde_json::Value,
 }
 
 #[derive(Debug, Deserialize)]
@@ -42,6 +42,19 @@ struct OpenAIRequest<'a> {
     temperature: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     max_tokens: Option<u32>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ModelListItem {
+    id: String,
+    label: String,
+    description: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ModelListResponse {
+    #[serde(default)]
+    data: Vec<serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -97,11 +110,108 @@ fn normalize_base_url(base: &str) -> String {
     let trimmed = base.trim().trim_end_matches('/');
     if trimmed.ends_with("/chat/completions") {
         trimmed.to_string()
-    } else if trimmed.ends_with("/v1") || trimmed.ends_with("/v1/") {
+    } else if trimmed.ends_with("/v1") || trimmed.ends_with("/v4") {
         format!("{}/chat/completions", trimmed.trim_end_matches('/'))
     } else {
         format!("{}/v1/chat/completions", trimmed)
     }
+}
+
+fn normalize_models_url(provider: &str, base: &str) -> String {
+    let trimmed = base.trim().trim_end_matches('/');
+    let mut url = if trimmed.ends_with("/models") {
+        trimmed.to_string()
+    } else if trimmed.ends_with("/chat/completions") {
+        trimmed
+            .trim_end_matches("/chat/completions")
+            .to_string()
+            + "/models"
+    } else if trimmed.ends_with("/v1") || trimmed.ends_with("/v4") {
+        format!("{}/models", trimmed)
+    } else {
+        format!("{}/v1/models", trimmed)
+    };
+
+    let text = format!("{provider} {base}").to_lowercase();
+    if text.contains("siliconflow")
+        || text.contains("siliconflow.cn")
+        || text.contains("硅基流动")
+    {
+        url.push_str("?type=text&sub_type=chat");
+    }
+    url
+}
+
+fn model_name(value: &serde_json::Value) -> Option<String> {
+    value
+        .get("id")
+        .or_else(|| value.get("name"))
+        .or_else(|| value.get("model"))
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn model_description(value: &serde_json::Value) -> String {
+    value
+        .get("description")
+        .or_else(|| value.get("owned_by"))
+        .or_else(|| value.get("type"))
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .unwrap_or("API 返回模型")
+        .to_string()
+}
+
+#[tauri::command]
+pub async fn list_models(
+    provider: String,
+    base_url: String,
+    api_key: Option<String>,
+) -> AppResult<Vec<ModelListItem>> {
+    let key = match api_key
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+    {
+        Some(v) => v,
+        None => secrets::read_api_key(&provider)?,
+    };
+    let url = normalize_models_url(&provider, &base_url);
+    let response = reqwest::Client::builder()
+        .build()
+        .map_err(AppError::Http)?
+        .get(url)
+        .bearer_auth(key)
+        .header("accept", "application/json")
+        .send()
+        .await
+        .map_err(AppError::Http)?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response.text().await.unwrap_or_default();
+        return Err(AppError::Stream(format!("HTTP {status}: {text}")));
+    }
+
+    let body = response.json::<ModelListResponse>().await?;
+    let mut seen = HashMap::new();
+    let mut models = Vec::new();
+    for item in body.data {
+        let Some(id) = model_name(&item) else {
+            continue;
+        };
+        if seen.insert(id.clone(), ()).is_some() {
+            continue;
+        }
+        models.push(ModelListItem {
+            label: id.clone(),
+            description: model_description(&item),
+            id,
+        });
+    }
+    Ok(models)
 }
 
 #[tauri::command]
