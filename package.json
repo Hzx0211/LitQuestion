@@ -1,7 +1,7 @@
 {
   "name": "litquestion",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "A local GPT-like macOS app with question branching tree",
   "scripts": {
